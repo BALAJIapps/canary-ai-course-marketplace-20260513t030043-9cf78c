@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { canaryLesson, user } from "@/db/schema";
-import { getSession } from "@/lib/utils";
+import { getSession } from "@/lib/session";
 import { openai } from "@/lib/ai";
 import { eq } from "drizzle-orm";
 

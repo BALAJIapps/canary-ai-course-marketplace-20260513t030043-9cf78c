@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { canaryLesson, user } from "@/db/schema";
-import { getSession } from "@/lib/utils";
+import { getSession } from "@/lib/session";
 import { eq, desc, ilike, or, and } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {

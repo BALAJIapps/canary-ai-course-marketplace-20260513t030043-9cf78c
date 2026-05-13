@@ -1,13 +1,12 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getSession } from "@/lib/utils";
+import { getSession } from "@/lib/session";
 import { db } from "@/db";
 import { canaryLesson, canarySubscription, user } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { BookOpen, Plus, Sparkles, ShieldCheck, GraduationCap, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -22,7 +21,7 @@ export default async function DashboardPage() {
   const role = dbUser?.role || "student";
 
   // Fetch relevant data based on role
-  const myLessons = role === "teacher" || role === "admin"
+  const myLessons = (role === "teacher" || role === "admin")
     ? await db
         .select()
         .from(canaryLesson)
@@ -33,7 +32,14 @@ export default async function DashboardPage() {
 
   const mySubscriptions = role === "student"
     ? await db
-        .select({ id: canarySubscription.id, lessonId: canarySubscription.lessonId, status: canarySubscription.status, createdAt: canarySubscription.createdAt, lessonTitle: canaryLesson.title, lessonSubject: canaryLesson.subject })
+        .select({
+          id: canarySubscription.id,
+          lessonId: canarySubscription.lessonId,
+          status: canarySubscription.status,
+          createdAt: canarySubscription.createdAt,
+          lessonTitle: canaryLesson.title,
+          lessonSubject: canaryLesson.subject,
+        })
         .from(canarySubscription)
         .leftJoin(canaryLesson, eq(canarySubscription.lessonId, canaryLesson.id))
         .where(eq(canarySubscription.studentId, session.user.id))
@@ -60,8 +66,14 @@ export default async function DashboardPage() {
           <div className="flex items-center gap-3">
             <span style={{ fontSize: "13px", color: "#615d59" }}>{dbUser?.name}</span>
             <Badge style={{ backgroundColor: "#f2f9ff", color: "#097fe8", borderRadius: "9999px", fontSize: "11px", fontWeight: 600 }}>{role}</Badge>
-            {role === "admin" && <Link href="/app/admin"><Button size="sm" variant="outline" style={{ fontSize: "13px" }}>Admin panel</Button></Link>}
-            <Link href="/marketplace"><Button size="sm" variant="ghost" style={{ fontSize: "13px" }}>Marketplace</Button></Link>
+            {role === "admin" && (
+              <Link href="/app/admin">
+                <Button size="sm" variant="outline" style={{ fontSize: "13px" }}>Admin panel</Button>
+              </Link>
+            )}
+            <Link href="/marketplace">
+              <Button size="sm" variant="ghost" style={{ fontSize: "13px" }}>Marketplace</Button>
+            </Link>
           </div>
         </div>
       </nav>
@@ -81,7 +93,7 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        {/* Teacher / Admin: my lessons */}
+        {/* Teacher / Admin: lessons */}
         {(role === "teacher" || role === "admin") && (
           <div className="mb-8">
             <h2 style={{ fontSize: "16px", fontWeight: 600, color: "rgba(0,0,0,0.8)", marginBottom: "12px" }}>
@@ -91,7 +103,9 @@ export default async function DashboardPage() {
               <div style={{ backgroundColor: "#ffffff", borderRadius: "12px", border: "1px solid rgba(0,0,0,0.1)", padding: "32px", textAlign: "center" }}>
                 <BookOpen className="h-8 w-8 mx-auto mb-3" style={{ color: "#a39e98" }} />
                 <p style={{ fontSize: "14px", color: "#615d59" }}>No lessons yet. Create your first lesson.</p>
-                <Link href="/app/lessons/new"><Button size="sm" className="mt-3" style={{ backgroundColor: "#0075de", color: "white" }}>Create lesson</Button></Link>
+                <Link href="/app/lessons/new">
+                  <Button size="sm" className="mt-3" style={{ backgroundColor: "#0075de", color: "white" }}>Create lesson</Button>
+                </Link>
               </div>
             ) : (
               <div className="space-y-3">
@@ -132,13 +146,17 @@ export default async function DashboardPage() {
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <h2 style={{ fontSize: "16px", fontWeight: 600, color: "rgba(0,0,0,0.8)" }}>My subscriptions</h2>
-              <Link href="/marketplace"><Button size="sm" variant="ghost" style={{ fontSize: "13px", color: "#0075de" }}>Browse more</Button></Link>
+              <Link href="/marketplace">
+                <Button size="sm" variant="ghost" style={{ fontSize: "13px", color: "#0075de" }}>Browse more</Button>
+              </Link>
             </div>
             {mySubscriptions.length === 0 ? (
               <div style={{ backgroundColor: "#ffffff", borderRadius: "12px", border: "1px solid rgba(0,0,0,0.1)", padding: "32px", textAlign: "center" }}>
                 <Users className="h-8 w-8 mx-auto mb-3" style={{ color: "#a39e98" }} />
                 <p style={{ fontSize: "14px", color: "#615d59" }}>No subscriptions yet.</p>
-                <Link href="/marketplace"><Button size="sm" className="mt-3" style={{ backgroundColor: "#0075de", color: "white" }}>Browse lessons</Button></Link>
+                <Link href="/marketplace">
+                  <Button size="sm" className="mt-3" style={{ backgroundColor: "#0075de", color: "white" }}>Browse lessons</Button>
+                </Link>
               </div>
             ) : (
               <div className="space-y-3">

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { canaryLesson, user } from "@/db/schema";
-import { getSession } from "@/lib/utils";
+import { getSession } from "@/lib/session";
 import { eq } from "drizzle-orm";
 
 export async function PATCH(
@@ -36,7 +36,7 @@ export async function PATCH(
       );
     }
 
-    // Explicit existence check before update (prevents silent no-op)
+    // Explicit existence check before update
     const [existing] = await db
       .select({ id: canaryLesson.id })
       .from(canaryLesson)

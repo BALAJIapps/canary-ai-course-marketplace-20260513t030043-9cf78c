@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { canarySubscription, canaryLesson } from "@/db/schema";
-import { getSession } from "@/lib/utils";
+import { getSession } from "@/lib/session";
 import { eq, and } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
@@ -24,7 +24,8 @@ export async function GET(req: NextRequest) {
       .from(canarySubscription)
       .leftJoin(canaryLesson, eq(canarySubscription.lessonId, canaryLesson.id))
       .where(eq(canarySubscription.studentId, session.user.id))
-      .orderBy(canarySubscription.createdAt);
+      .orderBy(canarySubscription.createdAt)
+      .limit(50);
 
     return NextResponse.json({ ok: true, subscriptions: subs });
   } catch (err) {
