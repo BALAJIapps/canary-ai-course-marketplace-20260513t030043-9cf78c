@@ -27,13 +27,24 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await req.json();
-    const { action, reviewNote } = body; // action: "approve" | "reject"
+    const { action, reviewNote } = body;
 
     if (!action || !["approve", "reject"].includes(action)) {
       return NextResponse.json(
         { ok: false, error: "action must be 'approve' or 'reject'" },
         { status: 400 }
       );
+    }
+
+    // Explicit existence check before update (prevents silent no-op)
+    const [existing] = await db
+      .select({ id: canaryLesson.id })
+      .from(canaryLesson)
+      .where(eq(canaryLesson.id, id))
+      .limit(1);
+
+    if (!existing) {
+      return NextResponse.json({ ok: false, error: "Lesson not found" }, { status: 404 });
     }
 
     const [updated] = await db
@@ -47,10 +58,6 @@ export async function PATCH(
       })
       .where(eq(canaryLesson.id, id))
       .returning();
-
-    if (!updated) {
-      return NextResponse.json({ ok: false, error: "Lesson not found" }, { status: 404 });
-    }
 
     return NextResponse.json({ ok: true, lesson: updated });
   } catch (err) {

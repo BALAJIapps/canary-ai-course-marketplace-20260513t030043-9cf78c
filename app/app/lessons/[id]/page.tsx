@@ -101,7 +101,12 @@ export default function LessonDetailPage() {
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-2">
               <Badge variant="secondary" style={{ borderRadius: "9999px", fontSize: "11px" }}>{lesson.subject}</Badge>
-              <span style={{ fontSize: "12px", fontWeight: 600, color: lesson.status === "approved" ? "#1aae39" : lesson.status === "rejected" ? "#dc2626" : "#dd5b00", backgroundColor: lesson.status === "approved" ? "#1aae3915" : lesson.status === "rejected" ? "#dc262615" : "#dd5b0015", borderRadius: "9999px", padding: "2px 8px" }}>{lesson.status}</span>
+              <span style={{
+                fontSize: "11px", fontWeight: 600,
+                color: lesson.status === "approved" ? "#1aae39" : lesson.status === "rejected" ? "#dc2626" : "#dd5b00",
+                backgroundColor: lesson.status === "approved" ? "#1aae3915" : lesson.status === "rejected" ? "#dc262615" : "#dd5b0015",
+                borderRadius: "9999px", padding: "2px 8px"
+              }}>{lesson.status}</span>
             </div>
             <span style={{ fontSize: "15px", fontWeight: 700, color: "#0075de" }}>
               {lesson.price === 0 ? "Free" : `$${(lesson.price / 100).toFixed(2)}`}
@@ -125,7 +130,9 @@ export default function LessonDetailPage() {
                 disabled={summarizing}
                 style={{ fontSize: "12px", color: "#0075de" }}
               >
-                {summarizing ? <><Loader2 className="mr-1 h-3 w-3 animate-spin" />Generating...</> : lesson.aiSummary ? "Regenerate" : "Generate summary"}
+                {summarizing
+                  ? <><Loader2 className="mr-1 h-3 w-3 animate-spin" />Generating...</>
+                  : lesson.aiSummary ? "Regenerate" : "Generate summary"}
               </Button>
             </div>
             {lesson.aiSummary ? (

@@ -2,19 +2,37 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { canaryLesson, user } from "@/db/schema";
 import { getSession } from "@/lib/utils";
-import { eq, desc, ilike, or } from "drizzle-orm";
+import { eq, desc, ilike, or, and } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search") || "";
     const status = searchParams.get("status") || "approved";
+    const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100);
+    const offset = Math.max(parseInt(searchParams.get("offset") || "0"), 0);
 
-    let query = db
+    // Build SQL WHERE conditions
+    const conditions = [];
+    if (status !== "all") {
+      conditions.push(eq(canaryLesson.status, status));
+    }
+    if (search) {
+      conditions.push(
+        or(
+          ilike(canaryLesson.title, `%${search}%`),
+          ilike(canaryLesson.description, `%${search}%`),
+          ilike(canaryLesson.subject, `%${search}%`)
+        )
+      );
+    }
+
+    const baseQuery = db
       .select({
         id: canaryLesson.id,
         title: canaryLesson.title,
         description: canaryLesson.description,
+        content: canaryLesson.content,
         subject: canaryLesson.subject,
         price: canaryLesson.price,
         status: canaryLesson.status,
@@ -26,25 +44,15 @@ export async function GET(req: NextRequest) {
       })
       .from(canaryLesson)
       .leftJoin(user, eq(canaryLesson.teacherId, user.id))
-      .orderBy(desc(canaryLesson.createdAt));
+      .orderBy(desc(canaryLesson.createdAt))
+      .limit(limit)
+      .offset(offset);
 
-    const lessons = await query;
+    const lessons = conditions.length > 0
+      ? await baseQuery.where(conditions.length === 1 ? conditions[0] : and(...conditions))
+      : await baseQuery;
 
-    let filtered = lessons;
-    if (status !== "all") {
-      filtered = filtered.filter((l) => l.status === status);
-    }
-    if (search) {
-      const s = search.toLowerCase();
-      filtered = filtered.filter(
-        (l) =>
-          l.title.toLowerCase().includes(s) ||
-          l.description.toLowerCase().includes(s) ||
-          l.subject.toLowerCase().includes(s)
-      );
-    }
-
-    return NextResponse.json({ ok: true, lessons: filtered });
+    return NextResponse.json({ ok: true, lessons });
   } catch (err) {
     console.error("[canary-lessons GET]", err);
     return NextResponse.json({ ok: false, error: "Failed to fetch lessons" }, { status: 500 });

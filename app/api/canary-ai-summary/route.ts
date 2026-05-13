@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { canaryLesson } from "@/db/schema";
+import { canaryLesson, user } from "@/db/schema";
 import { getSession } from "@/lib/utils";
 import { openai } from "@/lib/ai";
 import { eq } from "drizzle-orm";
@@ -11,6 +11,13 @@ export async function POST(req: NextRequest) {
     if (!session?.user) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
+
+    // Check role
+    const [dbUser] = await db
+      .select({ role: user.role })
+      .from(user)
+      .where(eq(user.id, session.user.id))
+      .limit(1);
 
     const body = await req.json();
     const { lessonId } = body;
@@ -27,6 +34,11 @@ export async function POST(req: NextRequest) {
 
     if (!lesson) {
       return NextResponse.json({ ok: false, error: "Lesson not found" }, { status: 404 });
+    }
+
+    // Ownership check: only the lesson's teacher or an admin can generate summaries
+    if (lesson.teacherId !== session.user.id && dbUser?.role !== "admin") {
+      return NextResponse.json({ ok: false, error: "Forbidden: not your lesson" }, { status: 403 });
     }
 
     // AI summary with timeout
