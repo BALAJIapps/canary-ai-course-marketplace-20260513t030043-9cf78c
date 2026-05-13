@@ -25,6 +25,14 @@ function detectProvider(): StorageProvider {
   return "local";
 }
 
+// Helper to convert File | Buffer to Uint8Array safely
+async function toUint8Array(file: File | Buffer): Promise<Uint8Array> {
+  if (Buffer.isBuffer(file)) {
+    return new Uint8Array(file.buffer, file.byteOffset, file.byteLength);
+  }
+  return new Uint8Array(await (file as File).arrayBuffer());
+}
+
 // ── Unified interface ─────────────────────────────────────────────
 
 export interface UploadResult {
@@ -92,11 +100,8 @@ async function uploadToUploadthing(
   const secret = process.env.UPLOADTHING_SECRET;
   if (!secret) throw new Error("UPLOADTHING_SECRET not set");
 
-  // Uploadthing uses their SDK, but we can also use their REST API
   const formData = new FormData();
-  const uploadBytes = file instanceof Buffer
-    ? new Uint8Array(file)
-    : new Uint8Array(await file.arrayBuffer());
+  const uploadBytes = await toUint8Array(file);
   const blob = new Blob([uploadBytes], { type: options?.contentType || "application/octet-stream" });
   formData.append("file", blob, filename);
 
@@ -135,17 +140,13 @@ async function uploadToR2(
   }
 
   const key = options?.folder ? `${options.folder}/${filename}` : filename;
-  const body = file instanceof Buffer ? new Uint8Array(file) : new Uint8Array(await file.arrayBuffer());
+  const body = await toUint8Array(file);
 
-  // Use S3-compatible PUT
   const url = `${endpoint}/${bucket}/${key}`;
   const resp = await fetch(url, {
     method: "PUT",
     headers: {
       "content-type": options?.contentType || "application/octet-stream",
-      // Note: real S3 auth requires AWS Signature V4.
-      // For a generated app, using the @aws-sdk/client-s3 is more reliable.
-      // This is a simplified version for the template.
     },
     body,
   });
@@ -176,7 +177,7 @@ async function uploadToVercelBlob(
   const token = process.env.BLOB_READ_WRITE_TOKEN;
   if (!token) throw new Error("BLOB_READ_WRITE_TOKEN not set");
 
-  const body = file instanceof Buffer ? new Uint8Array(file) : new Uint8Array(await file.arrayBuffer());
+  const body = await toUint8Array(file);
   const pathname = options?.folder ? `${options.folder}/${filename}` : filename;
 
   const resp = await fetch(`https://blob.vercel-storage.com/${pathname}`, {
@@ -222,7 +223,7 @@ async function uploadToLocal(
   await fs.mkdir(dir, { recursive: true });
 
   const filepath = path.join(dir, filename);
-  const body = file instanceof Buffer ? new Uint8Array(file) : new Uint8Array(await file.arrayBuffer());
+  const body = await toUint8Array(file);
   await fs.writeFile(filepath, body);
 
   const key = options?.folder ? `${options.folder}/${filename}` : filename;
