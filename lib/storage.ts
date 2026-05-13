@@ -21,11 +21,14 @@ function detectProvider(): StorageProvider {
   return "local";
 }
 
-// Helper: convert File | Buffer to a plain Buffer for safe use as BlobPart / body
-async function toBuffer(file: File | Buffer): Promise<Buffer> {
-  if (Buffer.isBuffer(file)) return file;
-  const ab = await (file as File).arrayBuffer();
-  return Buffer.from(ab);
+// Helper: convert File | Buffer to a plain ArrayBuffer (not ArrayBufferLike)
+// Using .slice() ensures we get a real ArrayBuffer, not SharedArrayBuffer
+async function toArrayBuffer(file: File | Buffer): Promise<ArrayBuffer> {
+  if (Buffer.isBuffer(file)) {
+    // .buffer may be SharedArrayBuffer; .slice() returns a real ArrayBuffer copy
+    return file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength) as ArrayBuffer;
+  }
+  return (file as File).arrayBuffer();
 }
 
 // ── Unified interface ─────────────────────────────────────────────
@@ -79,11 +82,8 @@ async function uploadToUploadthing(
   const secret = process.env.UPLOADTHING_SECRET;
   if (!secret) throw new Error("UPLOADTHING_SECRET not set");
 
-  const buf = await toBuffer(file);
-  const blob = new Blob([buf as unknown as ArrayBuffer], {
-    type: options?.contentType || "application/octet-stream",
-  });
-
+  const ab = await toArrayBuffer(file);
+  const blob = new Blob([ab], { type: options?.contentType || "application/octet-stream" });
   const formData = new FormData();
   formData.append("file", blob, filename);
 
@@ -100,7 +100,7 @@ async function uploadToUploadthing(
   return {
     url: result.url || result.fileUrl,
     key: result.key || result.fileKey,
-    size: result.size || 0,
+    size: result.size || ab.byteLength,
     name: filename,
   };
 }
@@ -122,13 +122,13 @@ async function uploadToR2(
   }
 
   const key = options?.folder ? `${options.folder}/${filename}` : filename;
-  const body = await toBuffer(file);
+  const ab = await toArrayBuffer(file);
 
   const url = `${endpoint}/${bucket}/${key}`;
   const resp = await fetch(url, {
     method: "PUT",
     headers: { "content-type": options?.contentType || "application/octet-stream" },
-    body,
+    body: ab,
   });
 
   if (!resp.ok) throw new Error(`R2 upload failed: ${resp.status}`);
@@ -136,7 +136,7 @@ async function uploadToR2(
   return {
     url: `${process.env.R2_PUBLIC_URL || endpoint}/${key}`,
     key,
-    size: body.length,
+    size: ab.byteLength,
     name: filename,
   };
 }
@@ -157,7 +157,7 @@ async function uploadToVercelBlob(
   const token = process.env.BLOB_READ_WRITE_TOKEN;
   if (!token) throw new Error("BLOB_READ_WRITE_TOKEN not set");
 
-  const body = await toBuffer(file);
+  const ab = await toArrayBuffer(file);
   const pathname = options?.folder ? `${options.folder}/${filename}` : filename;
 
   const resp = await fetch(`https://blob.vercel-storage.com/${pathname}`, {
@@ -166,7 +166,7 @@ async function uploadToVercelBlob(
       authorization: `Bearer ${token}`,
       "x-content-type": options?.contentType || "application/octet-stream",
     },
-    body,
+    body: ab,
   });
 
   if (!resp.ok) throw new Error(`Vercel Blob error: ${resp.status}`);
@@ -175,7 +175,7 @@ async function uploadToVercelBlob(
   return {
     url: data.url,
     key: data.pathname || pathname,
-    size: body.length,
+    size: ab.byteLength,
     name: filename,
   };
 }
@@ -202,7 +202,8 @@ async function uploadToLocal(
   const dir = path.join(process.cwd(), "public", "uploads", options?.folder || "");
   await fs.mkdir(dir, { recursive: true });
 
-  const body = await toBuffer(file);
+  const ab = await toArrayBuffer(file);
+  const body = Buffer.from(ab);
   const filepath = path.join(dir, filename);
   await fs.writeFile(filepath, body);
 
@@ -210,7 +211,7 @@ async function uploadToLocal(
   return {
     url: `/uploads/${key}`,
     key,
-    size: body.length,
+    size: ab.byteLength,
     name: filename,
   };
 }
