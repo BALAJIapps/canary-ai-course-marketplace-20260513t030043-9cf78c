@@ -94,9 +94,10 @@ async function uploadToUploadthing(
 
   // Uploadthing uses their SDK, but we can also use their REST API
   const formData = new FormData();
-  const blob = file instanceof Buffer
-    ? new Blob([file], { type: options?.contentType || "application/octet-stream" })
-    : file;
+  const uploadBytes = file instanceof Buffer
+    ? new Uint8Array(file)
+    : new Uint8Array(await file.arrayBuffer());
+  const blob = new Blob([uploadBytes], { type: options?.contentType || "application/octet-stream" });
   formData.append("file", blob, filename);
 
   const resp = await fetch("https://uploadthing.com/api/uploadFiles", {
@@ -134,7 +135,7 @@ async function uploadToR2(
   }
 
   const key = options?.folder ? `${options.folder}/${filename}` : filename;
-  const body = file instanceof Buffer ? file : Buffer.from(await file.arrayBuffer());
+  const body = file instanceof Buffer ? new Uint8Array(file) : new Uint8Array(await file.arrayBuffer());
 
   // Use S3-compatible PUT
   const url = `${endpoint}/${bucket}/${key}`;
@@ -175,7 +176,7 @@ async function uploadToVercelBlob(
   const token = process.env.BLOB_READ_WRITE_TOKEN;
   if (!token) throw new Error("BLOB_READ_WRITE_TOKEN not set");
 
-  const body = file instanceof Buffer ? file : Buffer.from(await file.arrayBuffer());
+  const body = file instanceof Buffer ? new Uint8Array(file) : new Uint8Array(await file.arrayBuffer());
   const pathname = options?.folder ? `${options.folder}/${filename}` : filename;
 
   const resp = await fetch(`https://blob.vercel-storage.com/${pathname}`, {
@@ -221,7 +222,7 @@ async function uploadToLocal(
   await fs.mkdir(dir, { recursive: true });
 
   const filepath = path.join(dir, filename);
-  const body = file instanceof Buffer ? file : Buffer.from(await file.arrayBuffer());
+  const body = file instanceof Buffer ? new Uint8Array(file) : new Uint8Array(await file.arrayBuffer());
   await fs.writeFile(filepath, body);
 
   const key = options?.folder ? `${options.folder}/${filename}` : filename;
